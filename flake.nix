@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nix-bundle-dir = {
-      url = "github:logos-co/nix-bundle-dir";
+      url = "github:logos-co/nix-bundle-dir/bundle-glib-schemas";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

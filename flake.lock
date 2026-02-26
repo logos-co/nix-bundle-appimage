@@ -7,15 +7,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1771971384,
-        "narHash": "sha256-fq0H+sxQhkGN054jdN+ZfHZibbOjHA+KD5SpRH78T1g=",
+        "lastModified": 1772074911,
+        "narHash": "sha256-pzmNKTAjZeL7xFIc/XywrmIIWPqghmvQCLRomzUDLsM=",
         "owner": "logos-co",
         "repo": "nix-bundle-dir",
-        "rev": "1ecb9662145a1ad84007a970b4bef50a4af159c9",
+        "rev": "3640018278c3d887279c2f3c30775708b91922c0",
         "type": "github"
       },
       "original": {
         "owner": "logos-co",
+        "ref": "bundle-glib-schemas",
         "repo": "nix-bundle-dir",
         "type": "github"
       }

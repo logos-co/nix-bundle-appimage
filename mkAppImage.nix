@@ -48,13 +48,22 @@ pkgs.stdenv.mkDerivation {
       cp -a ${bundle}/lib/. AppDir/usr/lib/
     fi
 
-    # Copy any extra dirs from the bundle (e.g., plugins, modules)
+    # Copy any extra dirs from the bundle (e.g., share/glib-2.0/schemas)
     for dir in ${bundle}/*/; do
       dirname=$(basename "$dir")
       if [ "$dirname" != "bin" ] && [ "$dirname" != "lib" ]; then
-        cp -a "$dir" "AppDir/usr/$dirname"
+        mkdir -p "AppDir/usr/$dirname"
+        cp -a "$dir"/. "AppDir/usr/$dirname/"
+        chmod -R u+w "AppDir/usr/$dirname"
       fi
     done
+
+    # Merge share directory from the original derivation (icons, .desktop, etc.)
+    if [ -d "${drv}/share" ]; then
+      mkdir -p AppDir/usr/share
+      cp -an ${drv}/share/. AppDir/usr/share/ 2>/dev/null || true
+      chmod -R u+w AppDir/usr/share
+    fi
 
     # Install .desktop file at AppDir root
     cp ${desktopFile} AppDir/${name}.desktop
@@ -66,9 +75,10 @@ pkgs.stdenv.mkDerivation {
     cp ${icon} AppDir/${name}.${iconExt}
     ln -s ${name}.${iconExt} AppDir/.DirIcon
 
-    # Install icon in FreeDesktop standard path (taskbar/window icon)
-    mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-    cp ${icon} AppDir/usr/share/icons/hicolor/256x256/apps/${name}.${iconExt}
+    # Install icon in FreeDesktop standard path (taskbar/window icon).
+    # Use pixmaps/ which accepts any size, avoiding hicolor size-matching issues.
+    mkdir -p AppDir/usr/share/pixmaps
+    cp ${icon} AppDir/usr/share/pixmaps/${name}.${iconExt}
 
     # Patch Icon= field in .desktop to match installed icon name
     sed -i "s|^Icon=.*|Icon=${name}|" AppDir/${name}.desktop
@@ -80,6 +90,8 @@ set -e
 APPDIR="$(dirname "$(readlink -f "$0")")"
 export PATH="$APPDIR/usr/bin:$PATH"
 export LD_LIBRARY_PATH="$APPDIR/usr/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export XDG_DATA_DIRS="$APPDIR/usr/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+export GSETTINGS_SCHEMA_DIR="$APPDIR/usr/share/glib-2.0/schemas''${GSETTINGS_SCHEMA_DIR:+:$GSETTINGS_SCHEMA_DIR}"
 exec "$APPDIR/usr/bin/${execBasename}" "$@"
 EOF
     chmod +x AppDir/AppRun
