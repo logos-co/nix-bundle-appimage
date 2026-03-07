@@ -8,7 +8,6 @@
 }:
 
 let
-  appimagetool = import ./fetchAppImageTool.nix { inherit pkgs; };
   appimageRuntime = import ./fetchAppImageRuntime.nix { inherit pkgs; };
 
   # Extract the Exec= binary name from the .desktop file.
@@ -36,7 +35,7 @@ pkgs.stdenv.mkDerivation {
   dontUnpack = true;
   dontFixup = true;
 
-  nativeBuildInputs = [ pkgs.file ];
+  nativeBuildInputs = [ pkgs.file pkgs.squashfsTools ];
 
   buildPhase = ''
     # Construct AppDir
@@ -84,8 +83,10 @@ exec "$APPDIR/usr/bin/${execBasename}" "$@"
 EOF
     chmod +x AppDir/AppRun
 
-    # Build AppImage
-    ARCH=$(uname -m) ${appimagetool}/bin/appimagetool --appimage-extract-and-run --runtime-file ${appimageRuntime} AppDir ${name}.AppImage
+    # Build AppImage: create squashfs with gzip (broad compatibility), then concatenate with runtime
+    mksquashfs AppDir appimage.squashfs -root-owned -noappend -comp gzip
+    cat ${appimageRuntime} appimage.squashfs > ${name}.AppImage
+    chmod +x ${name}.AppImage
   '';
 
   installPhase = ''
