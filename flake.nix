@@ -2,14 +2,15 @@
   description = "Bundle Nix derivations into AppImages";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    logos-nix.url = "github:logos-co/logos-nix";
+    nixpkgs.follows = "logos-nix/nixpkgs";
     nix-bundle-dir = {
       url = "github:logos-co/nix-bundle-dir";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, nix-bundle-dir }:
+  outputs = { self, logos-nix, nixpkgs, nix-bundle-dir }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f {
