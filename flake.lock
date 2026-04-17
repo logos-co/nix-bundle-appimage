@@ -44,11 +44,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776453610,
-        "narHash": "sha256-Z4jIhAIT/+KJ6d5BZdUEsIwZza7/0MuzZv961X1tuDc=",
+        "lastModified": 1776457964,
+        "narHash": "sha256-hSwyWA3ufUhrLy9cmuIbKl4s+mvZmcMqjD/pRx1d6sc=",
         "owner": "logos-co",
         "repo": "nix-bundle-dir",
-        "rev": "adea8975959a2a3b18256f5f78cf335b307934f4",
+        "rev": "061a9a830afaf23bb85d13fac673a6bb97edb2e2",
         "type": "github"
       },
       "original": {
