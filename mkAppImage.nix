@@ -83,12 +83,15 @@ exec "$APPDIR/usr/bin/${execBasename}" "$@"
 EOF
     chmod +x AppDir/AppRun
 
-    # Build AppImage: create squashfs with zstd, then concatenate with runtime.
-    # zstd decompresses ~5-10x faster than gzip, which matters because the
-    # AppImage runtime FUSE-mounts the squashfs and decompresses blocks on
-    # every page fault during app startup. The type2-runtime pinned in
-    # fetchAppImageRuntime.nix supports zstd natively.
-    mksquashfs AppDir appimage.squashfs -root-owned -noappend -comp zstd
+    # Build AppImage: create uncompressed squashfs, then concatenate with runtime.
+    # The AppImage runtime FUSE-mounts the squashfs and reads blocks on every
+    # page fault during app startup. Any compressor (gzip, zstd, etc.) means
+    # every dlopen of a Qt library or plugin pays CPU decompression cost on the
+    # cold launch, which adds up to minutes for large Qt apps. Disabling all
+    # four compression layers (-noI inode, -noD data, -noF fragment, -noX xattr)
+    # trades AppImage size for near-native launch performance.
+    mksquashfs AppDir appimage.squashfs -root-owned -noappend \
+      -noI -noD -noF -noX
     cat ${appimageRuntime} appimage.squashfs > ${name}.AppImage
     chmod +x ${name}.AppImage
   '';
