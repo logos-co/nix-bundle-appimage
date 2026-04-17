@@ -47,11 +47,14 @@ pkgs.stdenv.mkDerivation {
       cp -a ${bundle}/lib/. AppDir/usr/lib/
     fi
 
-    # Copy any extra dirs from the bundle (e.g., plugins, modules)
+    # Copy any extra dirs from the bundle (e.g., plugins, modules, share)
     for dir in ${bundle}/*/; do
       dirname=$(basename "$dir")
       if [ "$dirname" != "bin" ] && [ "$dirname" != "lib" ]; then
         cp -a "$dir" "AppDir/usr/$dirname"
+        # Nix store files are read-only; restore write perms so later phases
+        # (e.g., installing icons under share/) can create subdirectories.
+        chmod -R u+w "AppDir/usr/$dirname"
       fi
     done
 
@@ -79,6 +82,12 @@ set -e
 APPDIR="$(dirname "$(readlink -f "$0")")"
 export PATH="$APPDIR/usr/bin:$PATH"
 export LD_LIBRARY_PATH="$APPDIR/usr/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# libxkbcommon is compiled with a hardcoded /nix/store xkeyboard-config path
+# that won't exist at runtime; without this, Qt Wayland's keymap dispatch
+# calls xkb_context_ref on a NULL context and segfaults.
+if [ -d "$APPDIR/usr/share/X11/xkb" ]; then
+  export XKB_CONFIG_ROOT="$APPDIR/usr/share/X11/xkb"
+fi
 exec "$APPDIR/usr/bin/${execBasename}" "$@"
 EOF
     chmod +x AppDir/AppRun
