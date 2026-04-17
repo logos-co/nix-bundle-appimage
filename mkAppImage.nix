@@ -83,8 +83,12 @@ exec "$APPDIR/usr/bin/${execBasename}" "$@"
 EOF
     chmod +x AppDir/AppRun
 
-    # Build AppImage: create squashfs with gzip (broad compatibility), then concatenate with runtime
-    mksquashfs AppDir appimage.squashfs -root-owned -noappend -comp gzip
+    # Build AppImage: create squashfs with zstd, then concatenate with runtime.
+    # zstd decompresses ~5-10x faster than gzip, which matters because the
+    # AppImage runtime FUSE-mounts the squashfs and decompresses blocks on
+    # every page fault during app startup. The type2-runtime pinned in
+    # fetchAppImageRuntime.nix supports zstd natively.
+    mksquashfs AppDir appimage.squashfs -root-owned -noappend -comp zstd
     cat ${appimageRuntime} appimage.squashfs > ${name}.AppImage
     chmod +x ${name}.AppImage
   '';
