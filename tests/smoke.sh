@@ -132,14 +132,23 @@ extract() {  # extract <appimage> <destdir>
 }
 
 CLI_IMG=""; GUI_IMG=""
-[ "$built_cli" = 1 ] && CLI_IMG="$(echo "$(readlink -f out-cli)"/*.AppImage)"
-[ "$built_gui" = 1 ] && GUI_IMG="$(echo "$(readlink -f out-gui)"/*.AppImage)"
+# Resolve the glob carefully: without nullglob, an unmatched `*.AppImage`
+# expands to the literal pattern, which is non-empty and would green
+# "AppImage built" before the existence check below fails for the wrong reason.
+if [ "$built_cli" = 1 ]; then
+  set -- "$(readlink -f out-cli)"/*.AppImage
+  [ -f "$1" ] && CLI_IMG="$1"
+fi
+if [ "$built_gui" = 1 ]; then
+  set -- "$(readlink -f out-gui)"/*.AppImage
+  [ -f "$1" ] && GUI_IMG="$1"
+fi
 
 echo
 echo "== the artifact is a single self-contained AppImage =="
 for pair in "cli:$CLI_IMG" "gui:$GUI_IMG"; do
   tag="${pair%%:*}"; img="${pair#*:}"
-  if [ -z "$img" ]; then bad "$tag: AppImage built"; continue; fi
+  if [ -z "$img" ] || [ ! -f "$img" ]; then bad "$tag: AppImage built"; continue; fi
   ok "$tag: AppImage built"
   check "$tag: one executable file, $(basename "$img")" "[ -x '$img' ] && [ -f '$img' ]"
   # ELF magic, then 'AI' + type 2 at offset 8 -- the AppImage magic bytes.
@@ -154,7 +163,11 @@ done
 echo
 echo "== payload: plain path (qtCliApp -> no launcher) =="
 if [ -n "$C" ]; then
-  check "usr/bin/hello is an ELF, not a script" "head -c4 '$C/usr/bin/hello' | grep -q ELF"
+  # Full ELF magic (\x7fELF), not a substring grep of the first four bytes —
+  # "ELF" alone would also match a non-ELF file that happened to start with
+  # those letters.
+  check "usr/bin/hello is an ELF, not a script" \
+        "[ \"\$(od -An -tx1 -N4 '$C/usr/bin/hello' | tr -d ' ')\" = '7f454c46' ]"
   check "no launcher and no hidden companion in usr/bin" \
         "! ls -a '$C/usr/bin' | grep -qE '^\.[^.]'" \
         "a headless bundle should ship the binary itself"
@@ -179,7 +192,7 @@ if [ -n "$G" ]; then
   # does not. Get it wrong and AppRun execs a launcher whose companion is
   # missing -- a build that succeeds and an AppImage that cannot start.
   check "the companion .xkbcli.elf came across into usr/bin" \
-        "head -c4 '$G/usr/bin/.xkbcli.elf' | grep -q ELF" \
+        "[ \"\$(od -An -tx1 -N4 '$G/usr/bin/.xkbcli.elf' | tr -d ' ')\" = '7f454c46' ]" \
         "cp -a \${bundle}/bin/. must copy hidden entries; cp -a bin/* would not"
   check "the launcher exports XKB_CONFIG_ROOT" "grep -q XKB_CONFIG_ROOT '$G/usr/bin/xkbcli'"
   check "the xkb data it points at is in the payload" "[ -d '$G/usr/share/X11/xkb' ]"
@@ -245,14 +258,23 @@ run_in() {  # run_in <image> <appimage> <args> <expected-regex> <label>
     bad "$image: $label" "exit $rc: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
   fi
 }
+# SMOKE_DISTROS lets CI pin tags/digests (latest moves). Defaults stay
+# convenient for local runs.
+: "${SMOKE_DISTROS:=ubuntu:latest fedora:latest}"
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  for image in ubuntu:latest fedora:latest; do
+  for image in $SMOKE_DISTROS; do
     # A plain binary in bin/ ...
     [ -n "$CLI_IMG" ] && run_in "$image" "$CLI_IMG" "" 'Hello, world' "plain payload prints its greeting"
     # ... and a launcher, which must find its own companion ELF from whatever
     # argv[0] and cwd the AppImage runtime hands it.
     [ -n "$GUI_IMG" ] && run_in "$image" "$GUI_IMG" "--version" '[0-9]' "launcher payload resolves its companion"
   done
+elif [ -n "${GITHUB_ACTIONS:-}" ]; then
+  # Cross-distro exec is the primary signal this CI exists for. Skipping it
+  # on a runner that lost Docker would green the layout checks and miss the
+  # exact failure mode the job is meant to catch.
+  echo "  FAIL docker is required under GitHub Actions (cross-distro run is the point)" >&2
+  exit 1
 else
   echo "  -- docker unavailable, skipping the cross-distro run"
   echo "     (the payload assertions above still ran; portability did not)"
